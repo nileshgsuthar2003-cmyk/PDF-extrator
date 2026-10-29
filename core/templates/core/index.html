@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math-Aware Question Bank</title>
+    <style>
+        body {
+            font-family: 'CMU Serif', 'Times New Roman', serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 40px;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .question-container {
+            margin-top: 20px;
+            min-height: 200px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Math-Aware Question Bank</h1>
+        <div style="margin-bottom: 20px;">
+            <h3>Upload PDF Exam Paper</h3>
+            <form id="upload-form" enctype="multipart/form-data">
+                <input type="file" id="pdf-file" name="pdf_file" accept=".pdf" required>
+                <button type="submit">Upload PDF</button>
+            </form>
+            <div id="upload-status" style="margin-top: 10px; color: blue;"></div>
+        </div>
+        <button onclick="getRandomQuestion()">Get Question</button>
+        <div class="question-container" id="question-container">
+            Click "Get Question" to load a random math question.
+        </div>
+    </div>
+
+    <script>
+        async function getRandomQuestion() {
+            try {
+                const response = await fetch('/random-question/');
+                const data = await response.json();
+                document.getElementById('question-container').innerHTML = data.question;
+                MathJax.typesetPromise();
+            } catch (error) {
+                console.error('Error fetching question:', error);
+                document.getElementById('question-container').innerHTML = 'Error loading question.';
+            }
+        }
+
+        // Function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Handle PDF upload form submission
+        document.getElementById('upload-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('pdf-file');
+            const statusDiv = document.getElementById('upload-status');
+
+            if (!fileInput.files[0]) {
+                statusDiv.textContent = 'Please select a PDF file.';
+                statusDiv.style.color = 'red';
+                return;
+            }
+
+            formData.append('pdf_file', fileInput.files[0]);
+            statusDiv.textContent = 'Uploading and processing PDF...';
+            statusDiv.style.color = 'blue';
+
+            try {
+                const response = await fetch('/upload/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.textContent = data.message || 'PDF uploaded successfully! Processing in background...';
+                    statusDiv.style.color = 'green';
+                    // Clear the file input
+                    fileInput.value = '';
+                } else {
+                    statusDiv.textContent = 'Upload failed: ' + (data.error || 'Unknown error');
+                    statusDiv.style.color = 'red';
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                statusDiv.textContent = 'Upload failed. Please try again.';
+                statusDiv.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>
